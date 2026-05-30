@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id 'application'
+    id("io.freefair.lombok") version "9.5.0"
 }
 
 group = 'com.ptsmods'
