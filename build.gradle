@@ -1,0 +1,30 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'com.ptsmods'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+    maven {
+        url = 'https://maven.reposilite.com/releases'
+    }
+}
+
+application {
+    mainClass = 'com.ptsmods.repwh.ReposiliteWebhooksPlugin'
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:6.0.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    compileOnly 'com.reposilite:reposilite:3.5.28'
+}
+
+test {
+    useJUnitPlatform()
+}
