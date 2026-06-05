@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 @Plugin(name = "webhooks",
-        version = "1.0.0",
+        version = BuildVersion.VERSION,
         dependencies = {"configuration", "local-configuration", "shared-configuration"},
         settings = WebhookPluginSettings.class)
 public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
