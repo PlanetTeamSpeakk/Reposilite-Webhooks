@@ -1,0 +1,57 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - gradle.properties
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect version change
+        id: version
+        run: |
+          prev=$(git show HEAD~1:gradle.properties 2>/dev/null | grep '^pluginVersion=' | cut -d= -f2 || echo "")
+          curr=$(grep '^pluginVersion=' gradle.properties | cut -d= -f2)
+          echo "current=$curr" >> "$GITHUB_OUTPUT"
+          if [ "$prev" != "$curr" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up JDK 21
+        if: steps.version.outputs.changed == 'true'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: gradle
+
+      - name: Build JAR
+        if: steps.version.outputs.changed == 'true'
+        run: ./gradlew jar
+
+      - name: Tag and release
+        if: steps.version.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.current }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" \
+            "build/libs/Reposilite-Webhooks-${VERSION}.jar" \
+            --title "v$VERSION" \
+            --generate-notes
