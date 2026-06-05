@@ -8,6 +8,7 @@ import com.reposilite.maven.api.DeployEvent;
 import com.reposilite.maven.api.PreResolveEvent;
 import com.reposilite.maven.api.ResolvedFileDataEvent;
 import com.reposilite.maven.api.ResolvedFileEvent;
+import com.reposilite.plugin.Extensions;
 import com.reposilite.plugin.api.*;
 import com.reposilite.shared.ErrorResponse;
 import com.reposilite.storage.api.DocumentInfo;
@@ -21,6 +22,7 @@ import panda.std.Result;
 
 import java.io.InputStream;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -60,7 +62,7 @@ public enum EventType {
      * }
      * }</pre>
      */
-    DEPLOY(new EventSerializer<>(DeployEvent.class, event -> {
+    DEPLOY(new EventHandler<>(DeployEvent.class, event -> {
         JsonObject obj = new JsonObject();
         obj.addProperty("repository",           event.getRepository().getName());
         obj.addProperty("repositoryVisibility", event.getRepository().getVisibility().name());
@@ -83,7 +85,7 @@ public enum EventType {
      * }
      * }</pre>
      */
-    PRE_RESOLVE(new EventSerializer<>(PreResolveEvent.class, event ->
+    PRE_RESOLVE(new EventHandler<>(PreResolveEvent.class, event ->
         artifactBase(event.getRepository(), event.getGav(), event.getAccessToken())
     )),
 
@@ -107,7 +109,7 @@ public enum EventType {
      * }
      * }</pre>
      */
-    RESOLVED_FILE(new EventSerializer<>(ResolvedFileEvent.class, event -> {
+    RESOLVED_FILE(new EventHandler<>(ResolvedFileEvent.class, event -> {
         JsonObject obj = artifactBase(event.getRepository(), event.getGav(), event.getAccessToken());
         Result<kotlin.Pair<DocumentInfo, InputStream>, ErrorResponse> result = event.getResult();
         obj.addProperty("success", result.isOk());
@@ -143,7 +145,7 @@ public enum EventType {
      * }
      * }</pre>
      */
-    RESOLVED_FILE_DATA(new EventSerializer<>(ResolvedFileDataEvent.class, event -> {
+    RESOLVED_FILE_DATA(new EventHandler<>(ResolvedFileDataEvent.class, event -> {
         JsonObject obj = artifactBase(event.getRepository(), event.getGav(), event.getAccessToken());
         Result<InputStream, ErrorResponse> result = event.getResult();
         obj.addProperty("success", result.isOk());
@@ -156,14 +158,14 @@ public enum EventType {
     // =========================================================================
 
     @Getter
-    private final EventSerializer<? extends Event> serializer;
+    private final EventHandler<? extends Event> handler;
 
     EventType(Class<? extends Event> eventClass) {
-        this(EventSerializer.blank(eventClass));
+        this(EventHandler.blank(eventClass));
     }
 
-    EventType(EventSerializer<? extends Event> serializer) {
-        this.serializer = serializer;
+    EventType(EventHandler<? extends Event> handler) {
+        this.handler = handler;
     }
 
     // -------------------------------------------------------------------------
@@ -225,7 +227,7 @@ public enum EventType {
     }
 
     public Class<? extends Event> getEventClass() {
-        return serializer.eventClass();
+        return handler.eventClass();
     }
 
     // -------------------------------------------------------------------------
@@ -235,17 +237,16 @@ public enum EventType {
      * event to a {@link JsonElement}. Use {@link #blank} when the event carries
      * no meaningful external data.
      */
-    public record EventSerializer<T extends Event>(
+    public record EventHandler<T extends Event>(
         Class<T> eventClass,
-        @NonNull Function<T, @NonNull JsonElement> toJson
+        @NonNull Function<T, @NonNull JsonElement> serializer
     ) {
-        public static <T extends Event> EventSerializer<T> blank(Class<T> eventClass) {
-            return new EventSerializer<>(eventClass, t -> JsonNull.INSTANCE);
+        public static <T extends Event> EventHandler<T> blank(Class<T> eventClass) {
+            return new EventHandler<>(eventClass, t -> JsonNull.INSTANCE);
         }
 
-        public @Nullable JsonElement serialize(Event event) {
-            if (!eventClass.isInstance(event)) return null;
-            return toJson.apply(eventClass.cast(event));
+        public void registerHandler(Extensions extensions, Consumer<JsonElement> consumer) {
+            extensions.registerEvent(eventClass, e -> consumer.accept(serializer.apply(e)));
         }
     }
 }

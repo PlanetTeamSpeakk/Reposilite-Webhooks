@@ -52,7 +52,7 @@ public class Util {
                 envelope.addProperty("event",      eventType.name());
                 envelope.addProperty("deliveryId", deliveryId);
                 envelope.addProperty("timestamp",  timestamp);
-                envelope.add("data", data); // JsonNull.INSTANCE → "data": null
+                envelope.add("data", data);
                 yield GSON.toJson(envelope);
             }
             case URL_ENCODED_FORM -> {
@@ -84,5 +84,38 @@ public class Util {
     public static String label(WebhookSettings webhook) {
         String ref = webhook.getReference();
         return ref.isBlank() ? webhook.getPushUrl() : ref;
+    }
+
+    /**
+     * Glob matching over forward-slash-delimited paths.
+     * <ul>
+     *   <li>{@code **}: matches any sequence of characters including {@code /}</li>
+     *   <li>{@code *}: matches any sequence of characters except {@code /}</li>
+     *   <li>{@code ?}: matches any single character except {@code /}</li>
+     * </ul>
+     */
+    public static boolean matchesGlob(String pattern, String input) {
+        StringBuilder regex = new StringBuilder("^");
+        for (int i = 0; i < pattern.length(); i++) {
+            char c = pattern.charAt(i);
+            switch (c) {
+                case '*' -> {
+                    if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '*') {
+                        regex.append(".*");
+                        i++; // consume second '*'
+                    } else {
+                        regex.append("[^/]*");
+                    }
+                }
+                case '?' -> regex.append("[^/]");
+                default  -> {
+                    // Escape any regex metacharacters that appear literally in the pattern.
+                    if ("\\.[]{}()+-^$|".indexOf(c) >= 0) regex.append('\\');
+                    regex.append(c);
+                }
+            }
+        }
+        regex.append("$");
+        return input.matches(regex.toString());
     }
 }

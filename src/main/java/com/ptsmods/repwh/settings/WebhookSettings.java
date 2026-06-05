@@ -33,6 +33,7 @@ public class WebhookSettings implements SharedSettings {
     private Set<EventType> events = new HashSet<>(EventType.getDefaults());
     private List<String> repositories = new ArrayList<>();
     private String pathFilter = "";
+    private boolean regexFilter = false;
 
     // --- Security ---
     private String secret = Util.generateRandomString(64);
@@ -87,6 +88,11 @@ public class WebhookSettings implements SharedSettings {
                     "(e.g. 'com/example/**' or '**.pom'). Leave empty to match all paths.")
     public String getPathFilter() {
         return pathFilter;
+    }
+
+    @Doc(title = "Regex Filter", description = "Whether the path filter is a Regular Expression.")
+    public boolean isRegexFilter() {
+        return regexFilter;
     }
 
     @Doc(title = "Secret",

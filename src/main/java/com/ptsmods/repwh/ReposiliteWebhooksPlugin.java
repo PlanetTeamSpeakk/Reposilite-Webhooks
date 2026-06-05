@@ -8,10 +8,7 @@ import com.ptsmods.repwh.settings.types.BodyType;
 import com.ptsmods.repwh.settings.types.EventType;
 import com.ptsmods.repwh.settings.types.HeaderEntry;
 import com.reposilite.configuration.shared.SharedConfigurationFacade;
-import com.reposilite.plugin.api.Event;
-import com.reposilite.plugin.api.Facade;
-import com.reposilite.plugin.api.Plugin;
-import com.reposilite.plugin.api.ReposilitePlugin;
+import com.reposilite.plugin.api.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import panda.std.reactive.MutableReference;
@@ -29,6 +26,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 @Plugin(name = "webhooks",
         version = "1.0.0",
@@ -66,8 +64,7 @@ public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
     @Override
     public @Nullable Facade initialize() {
         for (EventType eventType : EventType.values()) {
-            extensions().registerEvent(eventType.getEventClass(),
-                    e -> handleEvent(eventType, e));
+            eventType.getHandler().registerHandler(extensions(), e -> handleEvent(eventType, e));
         }
         setupSettings();
         getLogger().info("Webhooks | Plugin initialized");
@@ -88,15 +85,11 @@ public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
 
     // Event dispatch
 
-    private void handleEvent(EventType eventType, @NotNull Event event) {
+    private void handleEvent(EventType eventType, @NotNull JsonElement payload) {
         WebhookPluginSettings globalSettings = settingsRef.get();
 
         // Global kill switch
         if (!globalSettings.isEnabled()) return;
-
-        // Serialize once
-        JsonElement payload = eventType.getSerializer().serialize(event);
-        if (payload == null) return; // shouldn't happen, every EventType covers its class
 
         boolean logFailures = globalSettings.isLogFailures();
 
@@ -144,12 +137,11 @@ public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
             return;
         }
 
-        // Generate envelope fields once — shared across all retry attempts so that
-        // the receiver can correlate retries by deliveryId.
+        // Generate envelope fields
         String deliveryId = UUID.randomUUID().toString();
-        long  timestamp   = System.currentTimeMillis();
+        long  timestamp = System.currentTimeMillis();
 
-        String body      = Util.buildBody(webhook.getBodyType(), eventType, payload, deliveryId, timestamp);
+        String body = Util.buildBody(webhook.getBodyType(), eventType, payload, deliveryId, timestamp);
         byte[] bodyBytes = body.getBytes(StandardCharsets.UTF_8);
         HttpRequest request = buildRequest(uri, webhook, bodyBytes);
 
@@ -170,7 +162,7 @@ public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
                 HttpResponse<Void> response = httpClient.send(
                         request, HttpResponse.BodyHandlers.discarding());
                 int status = response.statusCode();
-                if (status >= 200 && status < 300) return; // success — done
+                if (status >= 200 && status < 300) return; // success
                 failureReason = "HTTP " + status;
             } catch (IOException e) {
                 failureReason = e.getMessage();
@@ -271,39 +263,7 @@ public class ReposiliteWebhooksPlugin extends ReposilitePlugin {
         int slash = noLead.indexOf('/');
         String gav = slash >= 0 ? noLead.substring(slash + 1) : noLead;
 
-        return matchesGlob(pattern, gav);
-    }
-
-    /**
-     * Glob matching over forward-slash-delimited paths.
-     * <ul>
-     *   <li>{@code **}: matches any sequence of characters including {@code /}</li>
-     *   <li>{@code *}: matches any sequence of characters except {@code /}</li>
-     *   <li>{@code ?}: matches any single character except {@code /}</li>
-     * </ul>
-     */
-    private static boolean matchesGlob(String pattern, String input) {
-        StringBuilder regex = new StringBuilder("^");
-        for (int i = 0; i < pattern.length(); i++) {
-            char c = pattern.charAt(i);
-            switch (c) {
-                case '*' -> {
-                    if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '*') {
-                        regex.append(".*");
-                        i++; // consume second '*'
-                    } else {
-                        regex.append("[^/]*");
-                    }
-                }
-                case '?' -> regex.append("[^/]");
-                default  -> {
-                    // Escape any regex metacharacters that appear literally in the pattern.
-                    if ("\\.[]{}()+-^$|".indexOf(c) >= 0) regex.append('\\');
-                    regex.append(c);
-                }
-            }
-        }
-        regex.append("$");
-        return input.matches(regex.toString());
+        // Match either as regex or glob.
+        return webhook.isRegexFilter() ? Pattern.compile(pattern).matcher(gav).find() : Util.matchesGlob(pattern, gav);
     }
 }
