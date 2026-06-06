@@ -1,0 +1,37 @@
+[
+  {
+    "id": "maven-deploy-mod",
+    "execute-command": "/opt/scripts/deploy.sh",
+    "command-working-directory": "/tmp",
+    "pass-arguments-to-command": [
+      {
+        "source": "payload",
+        "name": "data.path"
+      }
+    ],
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hmac-sha256",
+            "secret": "<REPOSILITE SECRET>",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature-256"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "DEPLOY",
+            "parameter": {
+              "source": "payload",
+              "name": "event"
+            }
+          }
+        }
+      ]
+    }
+  }
+]

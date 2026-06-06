@@ -1,0 +1,45 @@
+[
+  {
+    "id": "maven-deploy-discord-notify",
+    "execute-command": "/opt/scripts/discord-notify.py",
+    "command-working-directory": "/tmp",
+    "pass-arguments-to-command": [
+      {
+        "source": "string",
+        "name": "/opt/scripts/discord-notify.conf"
+      },
+      {
+        "source": "payload",
+        "name": "data.path"
+      },
+      {
+        "source": "payload",
+        "name": "data.by"
+      }
+    ],
+    "trigger-rule": {
+      "and": [
+        {
+          "match": {
+            "type": "payload-hmac-sha256",
+            "secret": "<SECRET FROM REPOSILITE>",
+            "parameter": {
+              "source": "header",
+              "name": "X-Hub-Signature-256"
+            }
+          }
+        },
+        {
+          "match": {
+            "type": "value",
+            "value": "DEPLOY",
+            "parameter": {
+              "source": "payload",
+              "name": "event"
+            }
+          }
+        }
+      ]
+    }
+  }
+]
