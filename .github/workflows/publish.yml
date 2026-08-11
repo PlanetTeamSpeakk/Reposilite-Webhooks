@@ -24,7 +24,7 @@ jobs:
           prev=$(git show HEAD~1:gradle.properties 2>/dev/null | grep '^pluginVersion=' | cut -d= -f2 || echo "")
           curr=$(grep '^pluginVersion=' gradle.properties | cut -d= -f2)
           echo "current=$curr" >> "$GITHUB_OUTPUT"
-          if [ "$prev" != "$curr" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ] || [ "$prev" != "$curr" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
           else
             echo "changed=false" >> "$GITHUB_OUTPUT"
