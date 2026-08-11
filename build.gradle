@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'application'
     id("io.freefair.lombok") version "9.5.0"
+    id("com.gradleup.shadow") version "9.2.2"
 }
 
 group = 'com.ptsmods'
@@ -36,18 +36,33 @@ repositories {
     }
 }
 
-application {
-    mainClass = 'com.ptsmods.repwh.ReposiliteWebhooksPlugin'
-}
-
 dependencies {
     testImplementation platform('org.junit:junit-bom:6.0.0')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
     compileOnly 'com.reposilite:reposilite:3.5.28'
+
+    // Gson is used throughout the plugin. Reposilite no longer provides it on the
+    // runtime classpath, so it must be bundled into the plugin jar (see shadowJar).
+    implementation 'com.google.code.gson:gson:2.11.0'
 }
 
 test {
     useJUnitPlatform()
 }
+
+// The published artifact must be a fat jar containing (a relocated copy of) Gson,
+// since Reposilite does not expose it to plugins at runtime. Relocation keeps our
+// bundled Gson from clashing with any other copy on the shared plugin classloader.
+shadowJar {
+    archiveClassifier = ''
+    relocate 'com.google.gson', 'com.ptsmods.repwh.libs.gson'
+}
+
+// Disable the thin jar so only the shaded jar carries the canonical artifact name.
+jar {
+    enabled = false
+}
+
+assemble.dependsOn shadowJar

@@ -39,7 +39,7 @@ jobs:
 
       - name: Build JAR
         if: steps.version.outputs.changed == 'true'
-        run: ./gradlew jar
+        run: ./gradlew shadowJar
 
       - name: Tag and release
         if: steps.version.outputs.changed == 'true'
