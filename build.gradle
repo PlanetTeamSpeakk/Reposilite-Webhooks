@@ -41,7 +41,7 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
-    compileOnly 'com.reposilite:reposilite:3.5.28'
+    compileOnly 'com.reposilite:reposilite:3.6.4'
 
     // Gson is used throughout the plugin. Reposilite no longer provides it on the
     // runtime classpath, so it must be bundled into the plugin jar (see shadowJar).
